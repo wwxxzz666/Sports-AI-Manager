@@ -6,11 +6,17 @@
   <img src="https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Python-3.11+-3776ab?logo=python" alt="Python">
   <img src="https://img.shields.io/badge/LLM-DeepSeek|Qwen-ff6b6b" alt="LLM">
+  <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT">
+  <img src="https://img.shields.io/github/stars/wwxxzz666/Sports-AI-Manager?style=social" alt="Stars">
 </p>
 
-一个基于 Vue 3 + FastAPI 的智能运动管家 H5 应用，集成 **11 个 AI Agent**，覆盖饮食识别、运动打卡、动作分析、AI 评级、康复指导、找局约球、天气装备推荐等全方位运动管理场景。
+<p align="center">
+  <b>An intelligent sports management H5 app with 11 AI Agents — covering diet tracking, workout analysis, AI rating, rehab guidance, and more.</b>
+</p>
 
 ---
+
+一个基于 Vue 3 + FastAPI 的智能运动管家 H5 应用，集成 **11 个 AI Agent**，覆盖饮食识别、运动打卡、动作分析、AI 评级、康复指导、找局约球、天气装备推荐等全方位运动管理场景。
 
 ## 功能概览
 
@@ -110,7 +116,7 @@ LLM_VISION_MODEL=qwen-vl-max
 LLM_API_KEY=your-qwen-api-key
 ```
 
-> DeepSeek 不支持多模态，`food-calories` 和 `motion-analysis` 需通义千问。  
+> DeepSeek 不支持多模态，`food-calories` 和 `motion-analysis` 需通义千问。
 > 仅文本对话的 9 个 Agent 在 DeepSeek 下完全可用。
 
 ### 5. 接入第三方 API（可选）
