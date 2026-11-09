@@ -11,9 +11,12 @@ class Settings(BaseSettings):
 
     # Database
     DATABASE_URL: str = "sqlite+aiosqlite:///./data/sports_manager.db"
+    # 单独控制 SQL 回显：原来写的是 echo=settings.DEBUG，
+    # 生产开 DEBUG 会把每条 SQL（含用户数据）都打进日志
+    SQL_ECHO: bool = False
 
     # Auth
-    JWT_SECRET: str = "dev-secret-change-in-production"
+    JWT_SECRET: str = "dev-secret-change-in-production"  # 非 DEBUG 模式下使用该默认值会在启动时报错
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_EXPIRE_MINUTES: int = 60 * 24  # 24 hours for dev
     # 仅限本地开发：开启后未认证请求会被当成 dev-user 放行。
