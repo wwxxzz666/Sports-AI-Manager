@@ -164,9 +164,15 @@ async def get_today_diet(
 async def confirm_diet_record(
     record_id: str,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
 ):
+    # 必须带 user_id 过滤：原来只按 id 查，任何人知道 record_id
+    # 就能修改别人的餐饮记录
     result = await db.execute(
-        select(DietRecord).where(DietRecord.id == record_id)
+        select(DietRecord).where(
+            DietRecord.id == record_id,
+            DietRecord.user_id == user_id,
+        )
     )
     record = result.scalar_one_or_none()
     if record:
