@@ -1,3 +1,4 @@
+import logging
 import uuid
 from fastapi import APIRouter, Depends, Header
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -5,6 +6,7 @@ from sqlalchemy import select
 from pydantic import BaseModel
 from typing import Optional
 
+from config import settings
 from db.session import get_db
 from models.models import User, Conversation, Message
 from core.security import decode_access_token
@@ -12,15 +14,32 @@ from core.exceptions import AuthenticationError, success_response
 from agents.registry import get_agent, list_agents
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+DEV_USER_ID = "dev-user"
 
 
 def get_current_user_id(authorization: str = Header(default="")) -> str:
-    token = authorization.replace("Bearer ", "") if authorization.startswith("Bearer ") else ""
-    user_id = decode_access_token(token)
-    if not user_id:
-        # For development, allow unauthenticated access with a default user
-        return "dev-user"
-    return user_id
+    """从 Bearer token 解析用户 id，解析失败一律拒绝。
+
+    以前的实现在 token 无效时直接返回 "dev-user"，结果是全站无鉴权
+    （本模块以及 health/nutrition/ratings/reports/uploads/user/motion
+    共 19 处依赖关系都受影响）。现在只有显式打开
+    ALLOW_ANONYMOUS_USER 才会回落到 dev-user（仅限本地开发）。
+    """
+    token = authorization.removeprefix("Bearer ").strip() if authorization else ""
+    user_id = decode_access_token(token) if token else None
+    if user_id:
+        return user_id
+
+    if settings.ALLOW_ANONYMOUS_USER:
+        logger.warning(
+            "未认证请求被放行到 %s（ALLOW_ANONYMOUS_USER=true，仅限本地开发，勿用于生产）",
+            DEV_USER_ID,
+        )
+        return DEV_USER_ID
+
+    raise AuthenticationError("未登录或登录已过期")
 
 
 class ChatRequest(BaseModel):

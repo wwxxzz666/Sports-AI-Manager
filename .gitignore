@@ -9,6 +9,8 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
+.pytest_cache/
+server/tests/_tmp/
 
 # Environment
 .env
