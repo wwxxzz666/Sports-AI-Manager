@@ -15,6 +15,8 @@ os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{(_TMP_DB_DIR / 'test.db').as
 os.environ["DEBUG"] = "false"
 os.environ["ALLOW_ANONYMOUS_USER"] = "false"
 os.environ["LLM_API_KEY"] = ""
+# 非默认密钥，避免 validate_settings() 在 DEBUG=false 时拒绝启动
+os.environ["JWT_SECRET"] = "test-suite-secret-not-for-production"
 
 _TMP_DB_DIR.mkdir(exist_ok=True)
 

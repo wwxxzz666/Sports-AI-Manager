@@ -42,3 +42,24 @@ def get_llm() -> BaseLLMProvider:
     if _llm_instance is None:
         _llm_instance = create_llm_provider()
     return _llm_instance
+
+
+async def close_llm() -> None:
+    """关闭单例里的 httpx 连接池。
+
+    原来 close() 定义了但全库无人调用，进程退出时 httpx.AsyncClient
+    的连接一直没释放（RuntimeWarning: Unclosed client session）。
+    """
+    global _llm_instance
+    if _llm_instance is None:
+        return
+    try:
+        await _llm_instance.close()
+    finally:
+        _llm_instance = None
+
+
+def reset_llm() -> None:
+    """清空单例（测试用）。"""
+    global _llm_instance
+    _llm_instance = None
