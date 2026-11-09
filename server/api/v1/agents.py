@@ -118,6 +118,9 @@ async def agent_chat(
         metadata_json=response.get("structured"),
     )
     db.add(assistant_msg)
+    # 必须 flush 才能拿到 id：Message.id 是 ORM 层 default，只 add 不 flush 时
+    # assistant_msg.id 还是 None，前端收到的 message_id 恒为 null
+    await db.flush()
 
     return success_response({
         "conversation_id": conversation.id,
