@@ -1,9 +1,13 @@
 import json
+import logging
 import httpx
 from typing import AsyncGenerator
 
 from llm.base import BaseLLMProvider
+from core.exceptions import LLMProviderError
 from config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class DeepSeekClient(BaseLLMProvider):
@@ -64,7 +68,10 @@ class DeepSeekClient(BaseLLMProvider):
             data = resp.json()
             return data["choices"][0]["message"]["content"]
         except Exception as e:
-            return f"[DeepSeek 调用失败] {str(e)}"
+            # 以前这里把异常字符串当成 assistant 回复返回并存库，
+            # 前端完全分不出"AI 挂了"和"正常回复"。
+            logger.error("DeepSeek chat 调用失败: %s", e)
+            raise LLMProviderError(f"DeepSeek 调用失败: {e}") from e
 
     async def chat_stream(self, messages: list[dict], system_prompt: str = "") -> AsyncGenerator[str, None]:
         payload = {
@@ -100,20 +107,18 @@ class DeepSeekClient(BaseLLMProvider):
                         except (json.JSONDecodeError, KeyError, IndexError):
                             continue
         except Exception as e:
-            yield f"[DeepSeek 流式调用失败] {str(e)}"
+            logger.error("DeepSeek 流式调用失败: %s", e)
+            raise LLMProviderError(f"DeepSeek 流式调用失败: {e}") from e
 
     async def chat_with_vision(self, image_url: str, prompt: str) -> str:
-        """DeepSeek does not support vision. Return a clear message."""
-        return json.dumps(
-            {
-                "error": True,
-                "message": "DeepSeek 不支持多模态识别。该功能需要通义千问 qwen-vl-max。请切换 LLM_PROVIDER=qwen 后重试。",
-                "items": [],
-            },
-            ensure_ascii=False,
+        """DeepSeek does not support vision."""
+        raise LLMProviderError(
+            "DeepSeek 不支持多模态识别。该功能需要通义千问 qwen-vl-max，"
+            "请设置 LLM_PROVIDER=qwen 后重试。"
         )
 
     def _no_api_key_response(self) -> str:
+        logger.warning("DeepSeekClient 未配置 API Key，返回离线提示而非真实回复")
         return "请配置 DASHSCOPE_API_KEY 或 LLM_API_KEY 环境变量以获得 AI 响应。当前为离线模式。"
 
     async def close(self):

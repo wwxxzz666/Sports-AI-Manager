@@ -1,5 +1,5 @@
-import json
 from agents.base import BaseAgent
+from core.food_parser import parse_food_items
 from llm.factory import get_llm
 from config import settings
 
@@ -40,6 +40,22 @@ class FoodCaloriesAgent(BaseAgent):
         # Parse structured data
         food_items = self._parse_food_items(raw_response)
 
+        if not food_items:
+            # 绝不编造数据：以前这里会回退到写死的"米饭 + 红烧肉"，
+            # 用户上传任意图片都得到这份假营养数据。
+            return {
+                "reply": (
+                    "😕 没能从这张图片里识别出食物。\n"
+                    "可以试试：光线更亮一些、把盘子拍全，或者手动输入食物名称。"
+                ),
+                "structured": {
+                    "type": "food_analysis",
+                    "recognized": False,
+                    "items": [],
+                    "total_calories": 0,
+                },
+            }
+
         # Mark low-confidence items
         for item in food_items:
             if item.get("confidence", 1.0) < settings.FOOD_CONFIDENCE_THRESHOLD:
@@ -75,39 +91,5 @@ class FoodCaloriesAgent(BaseAgent):
         }
 
     def _parse_food_items(self, raw: str) -> list[dict]:
-        """Parse food items from LLM response."""
-        try:
-            # Try to extract JSON from response
-            start = raw.find("[")
-            end = raw.rfind("]") + 1
-            if start >= 0 and end > start:
-                items = json.loads(raw[start:end])
-                if isinstance(items, list):
-                    return items
-        except (json.JSONDecodeError, ValueError):
-            pass
-
-        # Fallback: return mock data
-        return [
-            {
-                "name": "米饭",
-                "portion": "一碗 (约200g)",
-                "portion_grams": 200,
-                "calories": 232,
-                "protein_g": 5.2,
-                "carbs_g": 51.2,
-                "fat_g": 0.6,
-                "confidence": 0.92,
-            },
-            {
-                "name": "红烧肉",
-                "portion": "3块 (约150g)",
-                "portion_grams": 150,
-                "calories": 585,
-                "protein_g": 22.5,
-                "carbs_g": 12.0,
-                "fat_g": 49.5,
-                "confidence": 0.68,
-                "needs_confirmation": True,
-            },
-        ]
+        """解析模型返回，失败返回空列表（不伪造数据）。"""
+        return parse_food_items(raw)

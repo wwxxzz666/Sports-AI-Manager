@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "dev-secret-change-in-production"
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_EXPIRE_MINUTES: int = 60 * 24  # 24 hours for dev
+    # 仅限本地开发：开启后未认证请求会被当成 dev-user 放行。
+    # 生产环境必须保持 False，否则全站无鉴权。
+    ALLOW_ANONYMOUS_USER: bool = False
 
     # LLM Provider
     LLM_PROVIDER: str = "deepseek"
