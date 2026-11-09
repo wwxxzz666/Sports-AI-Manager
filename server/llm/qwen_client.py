@@ -1,9 +1,13 @@
 import json
+import logging
 import httpx
 from typing import AsyncGenerator
 
 from llm.base import BaseLLMProvider
+from core.exceptions import LLMProviderError
 from config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class QwenClient(BaseLLMProvider):
@@ -63,8 +67,11 @@ class QwenClient(BaseLLMProvider):
             resp.raise_for_status()
             data = resp.json()
             return data["choices"][0]["message"]["content"]
-        except Exception:
-            return self._mock_response(messages)
+        except Exception as e:
+            # 以前这里静默返回 mock 假数据，用户根本看不出 AI 已经挂了。
+            # 现在明确抛 502，由上层展示"AI 服务不可用"。
+            logger.error("通义千问 chat 调用失败: %s", e)
+            raise LLMProviderError(f"通义千问调用失败: {e}") from e
 
     async def chat_stream(self, messages: list[dict], system_prompt: str = "") -> AsyncGenerator[str, None]:
         payload = {
@@ -102,8 +109,9 @@ class QwenClient(BaseLLMProvider):
                                 yield content
                         except (json.JSONDecodeError, KeyError, IndexError):
                             continue
-        except Exception:
-            yield self._mock_response(messages)
+        except Exception as e:
+            logger.error("通义千问流式调用失败: %s", e)
+            raise LLMProviderError(f"通义千问流式调用失败: {e}") from e
 
     async def chat_with_vision(self, image_url: str, prompt: str) -> str:
         messages = [
@@ -124,7 +132,11 @@ class QwenClient(BaseLLMProvider):
         }
 
         if not self.api_key:
-            return self._mock_vision_response()
+            # 图片识别绝不能编造结果：以前这里返回一份写死的"米饭 + 红烧肉"，
+            # 用户上传任意图片都会得到这份假营养数据。
+            raise LLMProviderError(
+                "未配置 LLM_API_KEY，无法进行图片识别。请在 .env 中配置通义千问的 API Key 后重试。"
+            )
 
         try:
             resp = await self.client.post(
@@ -135,41 +147,15 @@ class QwenClient(BaseLLMProvider):
             resp.raise_for_status()
             data = resp.json()
             return data["choices"][0]["message"]["content"]
-        except Exception:
-            return self._mock_vision_response()
+        except Exception as e:
+            logger.error("通义千问视觉模型调用失败: %s", e)
+            raise LLMProviderError(f"图片识别失败: {e}") from e
 
     def _mock_response(self, messages: list[dict]) -> str:
-        """Return mock response when API key is not configured."""
+        """未配置 API Key 时的明确提示（不伪造内容）。"""
         last_msg = messages[-1]["content"] if messages else ""
-        return ("你好！收到你的消息：" + last_msg + "。这是 AI 运动管家的模拟回复。请配置 LLM_API_KEY 以获得真实的 AI 响应。")
-
-    def _mock_vision_response(self) -> str:
-        """Return mock vision response when API key is not configured."""
-        return json.dumps(
-            [
-                {
-                    "name": "米饭",
-                    "portion": "一碗 (约200g)",
-                    "portion_grams": 200,
-                    "calories": 232,
-                    "protein_g": 5.2,
-                    "carbs_g": 51.2,
-                    "fat_g": 0.6,
-                    "confidence": 0.92,
-                },
-                {
-                    "name": "红烧肉",
-                    "portion": "3块 (约150g)",
-                    "portion_grams": 150,
-                    "calories": 585,
-                    "protein_g": 22.5,
-                    "carbs_g": 12.0,
-                    "fat_g": 49.5,
-                    "confidence": 0.68,
-                },
-            ],
-            ensure_ascii=False,
-        )
+        logger.warning("QwenClient 未配置 LLM_API_KEY，返回离线提示而非真实回复")
+        return ("你好！收到你的消息：" + str(last_msg) + "。这是 AI 运动管家的模拟回复。请配置 LLM_API_KEY 以获得真实的 AI 响应。")
 
     async def close(self):
         await self.client.aclose()
