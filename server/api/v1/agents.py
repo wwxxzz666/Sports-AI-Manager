@@ -74,10 +74,16 @@ async def agent_chat(
         })
 
     # Get or create conversation
+    # 必须同时按 user_id 过滤：否则只要知道别人的 conversation_id
+    # 就能把消息写进别人的会话里读走上下文（IDOR）。
     conversation = None
     if req.conversation_id:
         result = await db.execute(
-            select(Conversation).where(Conversation.id == req.conversation_id)
+            select(Conversation).where(
+                Conversation.id == req.conversation_id,
+                Conversation.user_id == user_id,
+                Conversation.agent_type == agent_type,
+            )
         )
         conversation = result.scalar_one_or_none()
 
@@ -150,10 +156,15 @@ async def delete_conversation(
     agent_type: str,
     conversation_id: str,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
 ):
     """Delete a conversation."""
+    # 带 user_id 过滤：原来只按 id 查，任何人知道 id 就能删别人的会话
     result = await db.execute(
-        select(Conversation).where(Conversation.id == conversation_id)
+        select(Conversation).where(
+            Conversation.id == conversation_id,
+            Conversation.user_id == user_id,
+        )
     )
     conversation = result.scalar_one_or_none()
     if conversation:
