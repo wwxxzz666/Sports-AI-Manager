@@ -12,6 +12,7 @@ from config import settings
 from db.session import get_db
 from models.models import DietRecord, FoodItem
 from core.exceptions import success_response, UploadError
+from core.food_parser import parse_food_items
 from api.v1.agents import get_current_user_id
 from llm.factory import get_llm
 
@@ -61,7 +62,11 @@ async def recognize_food(
     )
 
     raw_response = await llm.chat_with_vision(image_url, vision_prompt)
-    food_items = _parse_food_items(raw_response)
+    food_items = parse_food_items(raw_response)
+
+    if not food_items:
+        # 不编造数据：以前这里会回退到写死的"米饭 + 红烧肉 + 清炒时蔬"
+        raise UploadError("未能从图片中识别出食物，请重新拍摄（光线更亮、拍全餐盘）或手动输入")
 
     # Mark low-confidence items
     for item in food_items:
@@ -186,47 +191,5 @@ async def delete_meal(
 
 
 def _parse_food_items(raw: str) -> list[dict]:
-    """Parse food items from LLM vision response."""
-    try:
-        start = raw.find("[")
-        end = raw.rfind("]") + 1
-        if start >= 0 and end > start:
-            items = json.loads(raw[start:end])
-            if isinstance(items, list):
-                return items
-    except (json.JSONDecodeError, ValueError):
-        pass
-
-    # Mock fallback with multiple items
-    return [
-        {
-            "name": "米饭",
-            "portion": "一碗 (约200g)",
-            "portion_grams": 200,
-            "calories": 232,
-            "protein_g": 5.2,
-            "carbs_g": 51.2,
-            "fat_g": 0.6,
-            "confidence": 0.92,
-        },
-        {
-            "name": "红烧肉",
-            "portion": "3块 (约150g)",
-            "portion_grams": 150,
-            "calories": 585,
-            "protein_g": 22.5,
-            "carbs_g": 12.0,
-            "fat_g": 49.5,
-            "confidence": 0.68,
-        },
-        {
-            "name": "清炒时蔬",
-            "portion": "一碟 (约100g)",
-            "portion_grams": 100,
-            "calories": 45,
-            "protein_g": 2.1,
-            "carbs_g": 6.8,
-            "fat_g": 1.2,
-            "confidence": 0.88,
-        },
-    ]
+    """兼容旧调用点，实际实现在 core/food_parser.py（不再返回假数据）。"""
+    return parse_food_items(raw)
